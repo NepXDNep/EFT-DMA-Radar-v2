@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 
 namespace eft_dma_radar
 {
@@ -27,6 +28,10 @@ namespace eft_dma_radar
         private volatile bool _refreshLoot = false;
         private volatile string _mapName = string.Empty;
         private volatile bool _isScav = false;
+
+        //paskakoodi
+        private Aimbot _aimbot = new Aimbot();
+
 
         public enum GameStatus
         {
@@ -152,6 +157,10 @@ namespace eft_dma_radar
 
                 this._rgtPlayers.UpdateList();
                 this._rgtPlayers.UpdateAllPlayers();
+
+                //paskakoodi
+                this._aimbot.AimerBotter();
+
                 this.UpdateMisc();
             }
             catch (DMAShutdown)
@@ -268,23 +277,33 @@ namespace eft_dma_radar
 
             while (activeObject.obj != 0x0 && activeObject.obj != lastObject.obj)
             {
-                ulong objectNamePtr = Memory.ReadPtr(activeObject.obj + Offsets.GameObject.ObjectName);
-                string objectNameStr = Memory.ReadString(objectNamePtr, 64);
-
-                if (string.Equals(objectNameStr, objectName, StringComparison.OrdinalIgnoreCase))
+                var IsActiveObj = Memory.ReadValue<bool>(activeObject.obj + Offsets.GameObject.IsActive);
+                if (IsActiveObj)
                 {
-                    ulong _localGameWorld = Memory.ReadPtrChain(activeObject.obj, Offsets.GameWorld.To_LocalGameWorld);
-                    if (!Memory.ReadValue<bool>(_localGameWorld + Offsets.LocalGameWorld.RaidStarted))
+                    var objectNamePtr = Memory.ReadPtr(activeObject.obj + Offsets.GameObject.ObjectName);
+                    var objectNameStr = Memory.ReadString(objectNamePtr, 64);
+                    if (string.Equals(objectNameStr, objectName, StringComparison.OrdinalIgnoreCase))
                     {
-                        activeObject = Memory.ReadValue<BaseObject>(activeObject.nextObjectLink);
-                        continue;
+                        if (objectName == "GameWorld")
+                        {
+                            var lgwfr = Memory.ReadPtrChain(activeObject.obj, Offsets.GameWorld.To_LocalGameWorld);
+
+                            var strptr = Memory.ReadPtr(lgwfr + Offsets.LocalGameWorld.MapName);
+                            var mapname = Memory.ReadUnityString(strptr);
+                            if (mapname != "hideout")
+                            {
+                                Program.Log($"Found object {objectNameStr}");
+                                return activeObject.obj;
+                            }
+                        }
+                        else
+                        {
+                            Program.Log($"Found object {objectNameStr}");
+                            return activeObject.obj;
+                        }
                     }
-
-                    Program.Log($"Found object {objectNameStr}");
-                    return activeObject.obj;
                 }
-
-                activeObject = Memory.ReadValue<BaseObject>(activeObject.nextObjectLink);
+                activeObject = Memory.ReadValue<BaseObject>(activeObject.nextObjectLink); // Read next object
             }
 
             if (lastObject.obj != 0x0)

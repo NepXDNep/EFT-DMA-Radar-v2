@@ -26,6 +26,12 @@ namespace eft_dma_radar
         public static Game.GameStatus GameStatus = Game.GameStatus.NotFound;
 
         #region Getters
+        //paskakoodi
+        public static Vmm VMM
+        {
+            get => vmmInstance;
+        }
+
         public static int Ticks
         {
             get => _ticks;
