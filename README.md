@@ -1,3 +1,5 @@
+Additions: Mem aim,Kmbox aim, inputhandler, w2s
+Issues: Aim sometimes stops working after a couple raids, game occasionally crashes with chams
 
 # EFT-DMA-Radar-v2
 
