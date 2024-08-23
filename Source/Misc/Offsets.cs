@@ -273,7 +273,7 @@
 
     public struct BreathEffector
     {
-        public const uint Intensity = 0xA4; //[A4] Intensity : Single
+        public const uint Intensity = 0xA8; //[A8] _shakeIntensity : Single
     }
 
     public struct WalkEffector

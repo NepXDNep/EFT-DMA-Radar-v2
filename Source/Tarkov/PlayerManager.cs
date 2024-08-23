@@ -28,6 +28,7 @@ namespace eft_dma_radar
         private ulong _currentItemTemplate;
         private ulong _currentItemId;
 
+        private ulong _breathEffector;
         private float _weaponLn;
         private byte _animationState;
         private float _aimingSpeed;
@@ -228,7 +229,7 @@ namespace eft_dma_radar
             var staminaPtr = round3.AddEntry<ulong>(0, 6, physicalPtr, null, Offsets.Physical.Stamina);
             var handsStaminaPtr = round3.AddEntry<ulong>(0, 7, physicalPtr, null, Offsets.Physical.HandsStamina);
             var handsContainerPtr = round3.AddEntry<ulong>(0, 8, proceduralWeaponAnimationPtr, null, Offsets.ProceduralWeaponAnimation.HandsContainer);
-
+            var breathEffectorPtr = round3.AddEntry<ulong>(0, 9, proceduralWeaponAnimationPtr, null, Offsets.ProceduralWeaponAnimation.Breath);
             var startingIndex = 9; // last scattermap index + 1
 
             SetupOriginalSkillValues(startingIndex, skillsManagerPtr, ref round4, ref round5);
@@ -253,6 +254,8 @@ namespace eft_dma_radar
                 return;
             if (!scatterMap.Results[0][8].TryGetResult<ulong>(out var handsContainer))
                 return;
+            if (!scatterMap.Results[0][8].TryGetResult<ulong>(out var georgefloyd))
+                return;
 
             this._playerBase = playerBase;
             this._playerProfile = playerProfile;
@@ -263,7 +266,7 @@ namespace eft_dma_radar
             this._skillsManager = skillsManager;
             this._proceduralWeaponAnimation = proceduralWeaponAnimation;
             this._handsContainer = handsContainer;
-
+            this._breathEffector = georgefloyd;
             this.UpdateVariables();
 
             ProcessOriginalSkillValues(startingIndex, ref scatterMap);
@@ -273,11 +276,14 @@ namespace eft_dma_radar
         {
             try
             {
-                if (on && this._mask != 0)
+                entries.Add(new ScatterWriteDataEntry<float>(this._breathEffector + Offsets.BreathEffector.Intensity, 0.01f));
+
+                if (on && this._mask != 1)
                 {
-                    entries.Add(new ScatterWriteDataEntry<int>(this._proceduralWeaponAnimation + Offsets.ProceduralWeaponAnimation.Mask, 0));
+                    entries.Add(new ScatterWriteDataEntry<int>(this._proceduralWeaponAnimation + Offsets.ProceduralWeaponAnimation.Mask, 1));
+                    entries.Add(new ScatterWriteDataEntry<float>(this._breathEffector + Offsets.BreathEffector.Intensity, 0.01f));
                 }
-                else if (!on && this._mask == 0)
+                else if (!on && this._mask == 1)
                 {
                     entries.Add(new ScatterWriteDataEntry<int>(this._proceduralWeaponAnimation + Offsets.ProceduralWeaponAnimation.Mask, (int)this.OriginalValues["Mask"]));
                 }

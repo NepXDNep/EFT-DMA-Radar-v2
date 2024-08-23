@@ -22,12 +22,10 @@ using System.Diagnostics;
 using System.CodeDom.Compiler;
 using System.Runtime.CompilerServices;
 using System.Reflection;
-using static Vmmsharp.Internal.Buritto;
 using static Vmmsharp.VmmProcess;
 
-namespace Vmmsharp.Internal
+namespace eft_dma_radar
 {
-
 
     public static class Buritto
     {
@@ -146,13 +144,13 @@ namespace Vmmsharp.Internal
             uint flags
     );
 
-        [DllImport("vmm", EntryPoint = "VMMDLL_PdbLoad", CharSet = CharSet.Ansi)]
-        private static extern bool VMMDLL_PdbLoad(
+        [DllImport("vmm", EntryPoint = "VMMDLL_PdbLoad")]
+        internal static extern unsafe bool VMMDLL_PdbLoad(
             IntPtr hVMM,
             uint dwPID,
             ulong vaModuleBase,
-            [Out] StringBuilder szModuleName
-        );
+            byte* pModuleMapEntry
+    );
 
 
         [DllImport("vmm", EntryPoint = "VMMDLL_Map_GetEATU", CharSet = CharSet.Unicode)]
@@ -171,13 +169,20 @@ namespace Vmmsharp.Internal
             return VMMDLL_PdbSymbolAddress(hVMM, moduleName, symbolName, out symbolAddress);
         }
 
-        public static bool PdbLoad(IntPtr hVMM, uint pid, ulong moduleBase, out string moduleName)
+        public static unsafe bool PdbLoad(Vmm handle, uint pid, ulong vaModuleBase, out string szModuleName)
         {
-            StringBuilder buffer = new StringBuilder(32);
-            bool result = VMMDLL_PdbLoad(hVMM, pid, moduleBase, buffer);
-            moduleName = result ? buffer.ToString() : null;
-            return result;
+            szModuleName = "";
+            byte[] data = new byte[260];
+            fixed (byte* pb = data)
+            {
+                bool result = VMMDLL_PdbLoad(handle, pid, vaModuleBase, pb);
+                if (!result) { return false; }
+                szModuleName = Encoding.UTF8.GetString(data);
+                szModuleName = szModuleName.Substring(0, szModuleName.IndexOf((char)0));
+            }
+            return true;
         }
+
 
         public unsafe static bool GetExportFr(Vmm vmm_handle, uint process_pid, string module_name, string export_name, out ulong fnc_addy)
         {
@@ -191,15 +196,19 @@ namespace Vmmsharp.Internal
             bool success = Buritto.VMMDLL_Map_GetEATU(vmm_handle, process_pid, module_name, out pipi);
             if (!success)
             {
-                Console.WriteLine("Failed to find export");
+                Program.Log("Failed to get EAT");
                 return false;
             }
 
             VMMDLL_MAP_EAT eat = Marshal.PtrToStructure<VMMDLL_MAP_EAT>(pipi);
             if (eat.dwVersion != 3)
             {
+                Program.Log("Invalid dwVersion");
                 Buritto.VMMDLL_MemFree((byte*)((IntPtr)pipi).ToPointer());
+                return false;
             }
+            Program.Log($"Number of functions: {eat.cNumberOfFunctions.ToString()}");
+            Program.Log($"Cmap Count: {eat.cMap.ToString()}");
 
             array = new EATEntry[eat.cMap];
             for (int i = 0; i < eat.cMap; i++)
@@ -207,19 +216,21 @@ namespace Vmmsharp.Internal
                 VMMDLL_MAP_EATENTRY eatentry = Marshal.PtrToStructure<VMMDLL_MAP_EATENTRY>((nint)(((IntPtr)pipi).ToInt64() + num + i * num2));
                 if (string.Equals(eatentry.uszFunction, export_name))
                 {
+                    Program.Log("Found function VA");
                     fnc_addy = eatentry.vaFunction;
                     return true;
                 }
+                Program.Log(eatentry.uszFunction);
             }
+
+            Program.Log("Failed to find exported function");
             Buritto.VMMDLL_MemFree((byte*)((IntPtr)pipi).ToPointer());
             return false;
         }
 
     }
-}
 
-namespace eft_dma_radar
-{
+
     [StructLayout(LayoutKind.Sequential)]
     public struct Matrik
     {
@@ -413,6 +424,7 @@ namespace eft_dma_radar
 
             if (Winver > 22000)
             {
+                Program.Log("Winver greater than 2200, attempting to read with offset");
 
                 List<VmmProcess> crsissies = new List<VmmProcess>();
 
@@ -461,6 +473,7 @@ namespace eft_dma_radar
             }
             else
             {
+                Program.Log("Older winver detected, attempting to resolve via EAT");
                 ulong kitty = 0;
                 bool success = Buritto.GetExportFr(mem, win_logon_pid | Vmm.PID_PROCESS_WITH_KERNELMEMORY, "win32kbase.sys", "gafAsyncKeyState", out kitty);
 
@@ -475,17 +488,20 @@ namespace eft_dma_radar
                     }
                 }
 
+                Program.Log("Failed to resolve via EAT, attempting to resolve with PDB");
                 nint moduleinfo = IntPtr.Zero;
                 if (Buritto.VMMDLL_Map_GetModuleFromNameW(mem, win_logon_pid | Vmm.PID_PROCESS_WITH_KERNELMEMORY, "win32kbase.sys", out moduleinfo, 0))
                 {
-                    VMMDLL_MAP_EAT mod = Marshal.PtrToStructure<VMMDLL_MAP_EAT>(moduleinfo);
+                    Buritto.VMMDLL_MAP_EAT mod = Marshal.PtrToStructure<Buritto.VMMDLL_MAP_EAT>(moduleinfo);
 
                     string name;
                     if (Buritto.PdbLoad(mem, win_logon_pid | Vmm.PID_PROCESS_WITH_KERNELMEMORY, mod.vaModuleBase, out name))
                     {
+                        Program.Log("Downloaded pdb");
                         ulong gafgaf = 0;
                         if (Buritto.GetPdbSymbolAddress(mem, name, "gafAsyncKeyState", out gafgaf))
                         {
+                            Program.Log("Found PDB Symbol address");
                             if (gafgaf >= 0x7FFFFFFFFFFF)
                             {
                                 Program.Log("Resolved export via pdb");
@@ -767,7 +783,7 @@ namespace eft_dma_radar
         {
             if (!InputHandla.done_init)
                 if (keyboard.Init())
-                    Console.WriteLine("Keyboard hook init");
+                    Program.Log("Keyboard hook init");
 
             bool bHeld = keyboard.IsKeyDown(0x05);
 
@@ -838,7 +854,7 @@ namespace eft_dma_radar
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR -> Aimer botter -> {ex.Message}\nStackTrace:{ex.StackTrace}");
+                Program.Log($"ERROR -> Aimer botter -> {ex.Message}\nStackTrace:{ex.StackTrace}");
             }
 
         }
@@ -852,12 +868,12 @@ namespace eft_dma_radar
                 KmBoxWrapper.Init();
                 KmBoxWrapper.done_init = true;
                 _keyChecker.Start();
-                Console.WriteLine("Initialized kmbox");
+                Program.Log("Initialized kmbox");
             }
 
             if (_cameraManager is null)
             {
-                Console.WriteLine("Gamara is ded");
+                Program.Log("Gamara is ded");
                 return;
             }
 
@@ -869,7 +885,7 @@ namespace eft_dma_radar
                 KmBoxWrapper.Init();
                 KmBoxWrapper.done_init = true;
                 _keyChecker.Start();
-                Console.WriteLine("Initialized kmbox");
+                Program.Log("Initialized kmbox");
             }
 
             try
@@ -931,9 +947,8 @@ namespace eft_dma_radar
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR -> Aimer botter -> {ex.Message}\nStackTrace:{ex.StackTrace}");
+                Program.Log($"ERROR -> Aimer botter -> {ex.Message}\nStackTrace:{ex.StackTrace}");
             }
         }
     }
 }
-
