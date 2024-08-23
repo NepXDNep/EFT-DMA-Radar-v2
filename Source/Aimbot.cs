@@ -22,12 +22,102 @@ using System.Diagnostics;
 using System.CodeDom.Compiler;
 using System.Runtime.CompilerServices;
 using System.Reflection;
+using static Vmmsharp.Internal.Buritto;
+using static Vmmsharp.VmmProcess;
 
 namespace Vmmsharp.Internal
 {
 
+
     public static class Buritto
     {
+        internal struct VMMDLL_MAP_EATENTRY
+        {
+            internal ulong vaFunction;
+
+            internal uint dwOrdinal;
+
+            internal uint oFunctionsArray;
+
+            internal uint oNamesArray;
+
+            internal uint _FutureUse1;
+
+            [MarshalAs(UnmanagedType.LPUTF8Str)]
+            internal string uszFunction;
+
+            [MarshalAs(UnmanagedType.LPUTF8Str)]
+            internal string uszForwardedFunction;
+        }
+
+        internal struct VMMDLL_MAP_EAT
+        {
+            internal uint dwVersion;
+
+            internal uint dwOrdinalBase;
+
+            internal uint cNumberOfNames;
+
+            internal uint cNumberOfFunctions;
+
+            internal uint cNumberOfForwardedFunctions;
+
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
+            internal uint[] _Reserved1;
+
+            internal ulong vaModuleBase;
+
+            internal ulong vaAddressOfFunctions;
+
+            internal ulong vaAddressOfNames;
+
+            internal ulong pbMultiText;
+
+            internal uint cbMultiText;
+
+            internal uint cMap;
+        }
+
+        internal struct VMMDLL_MAP_MODULEENTRY
+        {
+            internal ulong vaBase;
+
+            internal ulong vaEntry;
+
+            internal uint cbImageSize;
+
+            internal bool fWow64;
+
+            [MarshalAs(UnmanagedType.LPUTF8Str)]
+            internal string uszText;
+
+            internal uint _Reserved3;
+
+            internal uint _Reserved4;
+
+            [MarshalAs(UnmanagedType.LPUTF8Str)]
+            internal string uszFullName;
+
+            internal uint tp;
+
+            internal uint cbFileSizeRaw;
+
+            internal uint cSection;
+
+            internal uint cEAT;
+
+            internal uint cIAT;
+
+            internal uint _Reserved2;
+
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
+            internal ulong[] _Reserved1;
+
+            internal nint pExDebugInfo;
+
+            internal nint pExVersionInfo;
+        }
+
         [DllImport("vmm", EntryPoint = "VMMDLL_MemReadEx", ExactSpelling = true)]
         public static extern bool VMMDLL_MemReadEx(
         IntPtr hVMM,
@@ -38,8 +128,94 @@ namespace Vmmsharp.Internal
         out uint pcbReadOpt,
         uint flags
     );
-    }
 
+        [DllImport("vmm", EntryPoint = "VMMDLL_PdbSymbolAddress", CharSet = CharSet.Ansi)]
+        private static extern bool VMMDLL_PdbSymbolAddress(
+            IntPtr hVMM,
+            [MarshalAs(UnmanagedType.LPStr)] string szModule,
+            [MarshalAs(UnmanagedType.LPStr)] string szSymbolName,
+            out ulong pvaSymbolAddress
+    );
+
+        [DllImport("vmm", EntryPoint = "VMMDLL_Map_GetModuleFromNameW", ExactSpelling = true)]
+        public unsafe static extern bool VMMDLL_Map_GetModuleFromNameW(
+            IntPtr hVMM,
+            uint dwPID,
+            [MarshalAs(UnmanagedType.LPWStr)] string uszModuleName,
+            out nint ppModuleMapEntry,
+            uint flags
+    );
+
+        [DllImport("vmm", EntryPoint = "VMMDLL_PdbLoad", CharSet = CharSet.Ansi)]
+        private static extern bool VMMDLL_PdbLoad(
+            IntPtr hVMM,
+            uint dwPID,
+            ulong vaModuleBase,
+            [Out] StringBuilder szModuleName
+        );
+
+
+        [DllImport("vmm", EntryPoint = "VMMDLL_Map_GetEATU", CharSet = CharSet.Unicode)]
+        public unsafe static extern bool VMMDLL_Map_GetEATU(
+            IntPtr hVMM,
+            uint dwPid,
+            [MarshalAs(UnmanagedType.LPStr)] string uszModuleName,
+            out IntPtr ppEatMap
+    );
+
+        [DllImport("vmm", EntryPoint = "VMMDLL_MemFree", ExactSpelling = true)]
+        public unsafe static extern void VMMDLL_MemFree(byte* pvMem);
+
+        public static bool GetPdbSymbolAddress(IntPtr hVMM, string moduleName, string symbolName, out ulong symbolAddress)
+        {
+            return VMMDLL_PdbSymbolAddress(hVMM, moduleName, symbolName, out symbolAddress);
+        }
+
+        public static bool PdbLoad(IntPtr hVMM, uint pid, ulong moduleBase, out string moduleName)
+        {
+            StringBuilder buffer = new StringBuilder(32);
+            bool result = VMMDLL_PdbLoad(hVMM, pid, moduleBase, buffer);
+            moduleName = result ? buffer.ToString() : null;
+            return result;
+        }
+
+        public unsafe static bool GetExportFr(Vmm vmm_handle, uint process_pid, string module_name, string export_name, out ulong fnc_addy)
+        {
+            fnc_addy = 0;
+
+            nint pipi = IntPtr.Zero;
+            EATEntry[] array = new EATEntry[0];
+            int num = Marshal.SizeOf<VMMDLL_MAP_EAT>();
+            int num2 = Marshal.SizeOf<VMMDLL_MAP_EATENTRY>();
+
+            bool success = Buritto.VMMDLL_Map_GetEATU(vmm_handle, process_pid, module_name, out pipi);
+            if (!success)
+            {
+                Console.WriteLine("Failed to find export");
+                return false;
+            }
+
+            VMMDLL_MAP_EAT eat = Marshal.PtrToStructure<VMMDLL_MAP_EAT>(pipi);
+            if (eat.dwVersion != 3)
+            {
+                Buritto.VMMDLL_MemFree((byte*)((IntPtr)pipi).ToPointer());
+            }
+
+            array = new EATEntry[eat.cMap];
+            for (int i = 0; i < eat.cMap; i++)
+            {
+                VMMDLL_MAP_EATENTRY eatentry = Marshal.PtrToStructure<VMMDLL_MAP_EATENTRY>((nint)(((IntPtr)pipi).ToInt64() + num + i * num2));
+                if (string.Equals(eatentry.uszFunction, export_name))
+                {
+                    fnc_addy = eatentry.vaFunction;
+                    return true;
+                }
+            }
+            Buritto.VMMDLL_MemFree((byte*)((IntPtr)pipi).ToPointer());
+            return false;
+        }
+
+    }
 }
 
 namespace eft_dma_radar
@@ -220,44 +396,83 @@ namespace eft_dma_radar
             this.winlogon = mem.Process("winlogon.exe");
             this.win_logon_pid = winlogon.PID;
 
-            List<VmmProcess> crsissies = new List<VmmProcess>();
-
-            foreach (var proc in mem.Processes)
+            if (Winver > 22000)
             {
-                var info = proc.GetInfo();
-                if (info.sName == "csrss.exe" || info.sNameLong == "csrss.exe")
+
+                List<VmmProcess> crsissies = new List<VmmProcess>();
+
+                foreach (var proc in mem.Processes)
                 {
-                    crsissies.Add(proc);
+                    var info = proc.GetInfo();
+                    if (info.sName == "csrss.exe" || info.sNameLong == "csrss.exe")
+                    {
+                        crsissies.Add(proc);
+                    }
+                }
+
+                Program.Log($"Found: {crsissies.Count()} crsissies");
+
+                foreach (var csrs in crsissies)
+                {
+                    ulong temp = csrs.GetModuleBase("win32ksgd.sys");
+                    if (temp == 0) continue;
+                    ulong g_session_global_slots = temp + 0x3110;
+
+                    ulong? t1 = csrs.MemReadAs<ulong>(g_session_global_slots);
+                    ulong? t2 = csrs.MemReadAs<ulong>(t1.Value);
+                    ulong? t3 = csrs.MemReadAs<ulong>(t2.Value);
+                    ulong user_session_state = t3.Value;
+
+
+                    if (Winver >= 22631 && Ubr >= 3810)
+                        this.gafAsyncKeyStateExport = user_session_state + 0x36A8;
+                    else
+                        this.gafAsyncKeyStateExport = user_session_state + 0x3690;
+                    if (gafAsyncKeyStateExport > 0x7FFFFFFFFFFF)
+                        break;
+                }
+                if (gafAsyncKeyStateExport > 0x7FFFFFFFFFFF)
+                {
+                    done_init = true;
+                    return true;
                 }
             }
-
-            Program.Log($"Found: {crsissies.Count()} crsissies");
-
-            foreach (var csrs in crsissies)
+            else
             {
-                ulong temp = csrs.GetModuleBase("win32ksgd.sys");
-                if (temp == 0) continue;
-                ulong g_session_global_slots = temp + 0x3110;
+                ulong kitty = 0;
+                bool success = Buritto.GetExportFr(mem, win_logon_pid | Vmm.PID_PROCESS_WITH_KERNELMEMORY, "win32kbase.sys", "gafAsyncKeyState", out kitty);
 
-                ulong? t1 = csrs.MemReadAs<ulong>(g_session_global_slots);
-                ulong? t2 = csrs.MemReadAs<ulong>(t1.Value);
-                ulong? t3 = csrs.MemReadAs<ulong>(t2.Value);
-                ulong user_session_state = t3.Value;
+                if (success)
+                {
+                    if (kitty >= 0x7FFFFFFFFFFF)
+                    {
+                        this.gafAsyncKeyStateExport = kitty;
+                        return true;
+                    }
+                }
 
+                nint moduleinfo = IntPtr.Zero;
+                if (Buritto.VMMDLL_Map_GetModuleFromNameW(mem, win_logon_pid | Vmm.PID_PROCESS_WITH_KERNELMEMORY, "win32kbase.sys", out moduleinfo, 0))
+                {
+                    VMMDLL_MAP_EAT mod = Marshal.PtrToStructure<VMMDLL_MAP_EAT>(moduleinfo);
 
-                if (Winver >= 22631 && Ubr >= 3810)
-                    this.gafAsyncKeyStateExport = user_session_state + 0x36A8;
-                else
-                    this.gafAsyncKeyStateExport = user_session_state + 0x3690;
+                    string name;
+                    if (Buritto.PdbLoad(mem, win_logon_pid | Vmm.PID_PROCESS_WITH_KERNELMEMORY, mod.vaModuleBase, out name))
+                    {
+                        ulong gafgaf = 0;
+                        if (Buritto.GetPdbSymbolAddress(mem, name, "gafAsyncKeyState", out gafgaf))
+                        {
+                            if (gafgaf >= 0x7FFFFFFFFFFF)
+                            {
+                                this.gafAsyncKeyStateExport = gafgaf;
+                                return true;
+                            }
+                        }
+                    }
+                }
 
-                if (gafAsyncKeyStateExport > 0x7FFFFFFFFFFF)
-                    break;
             }
-            if (gafAsyncKeyStateExport > 0x7FFFFFFFFFFF)
-            {
-                done_init = true;
-                return true;
-            }
+            Program.Log("Failed to find export");
             return false;
         }
 
@@ -267,6 +482,12 @@ namespace eft_dma_radar
             Array.Copy(state_bitmap, previous_key_state_bitmap, 64);
 
             bool success = Buritto.VMMDLL_MemReadEx(mem, win_logon_pid | Vmm.PID_PROCESS_WITH_KERNELMEMORY, gafAsyncKeyStateExport, state_bitmap, 64, out _, Vmm.FLAG_NOCACHE);
+
+            if (!success)
+            {
+                Program.Log("You fucking failure");
+                return;
+            }
 
             for (int vk = 0; vk < 256; ++vk)
             {
@@ -369,7 +590,7 @@ namespace eft_dma_radar
         }
 
 
-        public class KmBoxWrapper // If u wanna dllimport kmbox stuff, this is my one for bpro which is a crashing piece of shit. stick to mem
+        public class KmBoxWrapper // Create a wrapper class (optional, but recommended)
         {
             public static bool done_init = false;
 
@@ -567,7 +788,7 @@ namespace eft_dma_radar
 
                                 Vector2 rel = new Vector2(HeadPosScr.X - (1920f / 2f), HeadPosScr.Y - (1080f / 2f));
 
-                                var dist = Math.Sqrt((1 + rel.X * rel.X) + (1 +rel.Y * rel.Y));
+                                var dist = Math.Sqrt((1 + rel.X * rel.X) + (1 + rel.Y * rel.Y));
                                 if (dist < lastDist && dist > 2)
                                 {
                                     clozestPlayer = player;
