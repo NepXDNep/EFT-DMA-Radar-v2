@@ -369,6 +369,7 @@ namespace eft_dma_radar
     public class InputHandla //Credits to metick's DMA c++ library
     {
         public static bool done_init = false;
+        private static int try_count = 0;
         VmmProcess winlogon;
         private uint win_logon_pid;
         private ulong gafAsyncKeyStateExport;
@@ -385,6 +386,13 @@ namespace eft_dma_radar
         {
             if (done_init) return true;
 
+            if (try_count > 3)
+            {
+                done_init = true;
+                Program.Log("Failed to initialize input handler in 3+ attempts");
+                return false;
+            }
+
             var meow = mem.RegValueRead("HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\CurrentBuild", out _);
             var Winver = Int32.Parse(System.Text.Encoding.Unicode.GetString(meow));
 
@@ -395,6 +403,13 @@ namespace eft_dma_radar
 
             this.winlogon = mem.Process("winlogon.exe");
             this.win_logon_pid = winlogon.PID;
+
+            if (winlogon.PID == 0)
+            {
+                Program.Log("Winlogon not found");
+                try_count += 1;
+                return false;
+            }
 
             if (Winver > 22000)
             {
@@ -484,6 +499,7 @@ namespace eft_dma_radar
 
             }
             Program.Log("Failed to find export");
+            try_count += 1;
             return false;
         }
 
