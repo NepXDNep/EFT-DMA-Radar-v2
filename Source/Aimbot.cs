@@ -425,14 +425,21 @@ namespace eft_dma_radar
 
 
                     if (Winver >= 22631 && Ubr >= 3810)
+                    {
+                        Program.Log("Win11 detected");
                         this.gafAsyncKeyStateExport = user_session_state + 0x36A8;
+                    }
                     else
+                    {
+                        Program.Log("Older windows version detected, Attempting to resolve by offset");
                         this.gafAsyncKeyStateExport = user_session_state + 0x3690;
+                    }
                     if (gafAsyncKeyStateExport > 0x7FFFFFFFFFFF)
                         break;
                 }
                 if (gafAsyncKeyStateExport > 0x7FFFFFFFFFFF)
                 {
+                    Program.Log("Inputhandler success");
                     done_init = true;
                     return true;
                 }
@@ -446,7 +453,9 @@ namespace eft_dma_radar
                 {
                     if (kitty >= 0x7FFFFFFFFFFF)
                     {
+                        Program.Log("Resolved export via getexport");
                         this.gafAsyncKeyStateExport = kitty;
+                        done_init = true;
                         return true;
                     }
                 }
@@ -464,7 +473,9 @@ namespace eft_dma_radar
                         {
                             if (gafgaf >= 0x7FFFFFFFFFFF)
                             {
+                                Program.Log("Resolved export via pdb");
                                 this.gafAsyncKeyStateExport = gafgaf;
+                                done_init = true;
                                 return true;
                             }
                         }
@@ -749,34 +760,32 @@ namespace eft_dma_radar
             {
                 if (this.InGame && !Memory.InHideout && _cameraManager is not null)
                 {
+                    var players = this.AllPlayers?.Select(x => x.Value).Where(x => x.IsActive && x.IsAlive);
 
-
-                    this._cameraManager.GetViewmatrixAsync();
-
-                    Vector2 myBussy = LocalPlayer.GetRotationFr();
-                    Vector3 cameraPos = GetFireportPos();
-
-                    if (bHeld && bHeld == bLastHeld && udPlayer is not null && udPlayer.IsAlive && udPlayer.IsActive)
+                    if (players.Any())
                     {
-                        GetHeadScr(udPlayer, out Vector2 headPosScr, out Vector3 headPos);
-                        Vector2 rel = new Vector2(headPosScr.X - (1920f / 2f), headPosScr.Y - (1080f / 2f));
-                        var dist = Math.Sqrt((1 + rel.X * rel.X) + (1 + rel.Y * rel.Y));
-                        if (dist < 30f)
-                        {
-                            Vector2 ang = CalcAngle(cameraPos, headPos);
 
-                            if (!float.IsNaN(ang.X) && !float.IsNaN(ang.Y))
+                        this._cameraManager.GetViewmatrixAsync();
+
+                        Vector2 myBussy = LocalPlayer.GetRotationFr();
+                        Vector3 cameraPos = GetFireportPos();
+
+                        if (bHeld && bHeld == bLastHeld && udPlayer is not null && udPlayer.IsAlive && udPlayer.IsActive)
+                        {
+                            GetHeadScr(udPlayer, out Vector2 headPosScr, out Vector3 headPos);
+                            Vector2 rel = new Vector2(headPosScr.X - (1920f / 2f), headPosScr.Y - (1080f / 2f));
+                            var dist = Math.Sqrt((1 + rel.X * rel.X) + (1 + rel.Y * rel.Y));
+                            if (dist < 30f)
                             {
-                                LocalPlayer.SetRotationFr(ang);
+                                Vector2 ang = CalcAngle(cameraPos, headPos);
+
+                                if (!float.IsNaN(ang.X) && !float.IsNaN(ang.Y))
+                                {
+                                    LocalPlayer.SetRotationFr(ang);
+                                }
                             }
                         }
-                    }
-                    else if (bHeld && (bHeld != bLastHeld || udPlayer is null || !udPlayer.IsAlive || !udPlayer.IsActive))
-                    {
-                        var players = this.AllPlayers?
-                        .Select(x => x.Value)
-                        .Where(x => x.IsActive && x.IsAlive);
-                        if (players is not null)
+                        else if (bHeld && (bHeld != bLastHeld || udPlayer is null || !udPlayer.IsAlive || !udPlayer.IsActive))
                         {
 
                             Player clozestPlayer = null;
@@ -806,6 +815,7 @@ namespace eft_dma_radar
                                     udPlayer = clozestPlayer;
                                 }
                             }
+
                         }
                     }
                 }
