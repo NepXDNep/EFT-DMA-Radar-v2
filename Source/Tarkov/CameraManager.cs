@@ -1,6 +1,5 @@
 ﻿
 using System.Drawing;
-using System.Threading.Tasks;
 
 namespace eft_dma_radar
 {
@@ -52,7 +51,6 @@ namespace eft_dma_radar
             this._unityBase = unityBase;
             this.GetCamera();
         }
-
 
         //paskakoodi
         public Matrik ViewMatrix

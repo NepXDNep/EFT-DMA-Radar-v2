@@ -21,14 +21,13 @@ namespace eft_dma_radar
         private ulong _physical;
         private ulong _playerBase;
         private ulong _playerProfile;
-        public ulong _proceduralWeaponAnimation;
+        public ulong _proceduralWeaponAnimation; //paskakoodi
         private ulong _firmarmController;
         private ulong _skillsManager;
         private ulong _stamina;
         private ulong _currentItemTemplate;
         private ulong _currentItemId;
 
-        private ulong _breathEffector;
         private float _weaponLn;
         private byte _animationState;
         private float _aimingSpeed;
@@ -74,7 +73,7 @@ namespace eft_dma_radar
                     {
                         { "BuffLiftWeightInc", new Skill(Offsets.SkillManager.StrengthBuffLiftWeightInc, 0.3f) },
                         { "BuffSprintSpeedInc", new Skill(Offsets.SkillManager.StrengthBuffSprintSpeedInc, 0.2f) },
-                        { "BuffJumpHeightInc", new Skill(Offsets.SkillManager.StrengthBuffJumpHeightInc, 0.2f + (_config.JumpPowerStrength / 100)) },
+                        { "BuffJumpHeightInc", new Skill(Offsets.SkillManager.StrengthBuffJumpHeightInc, 0.2f) },
                         { "BuffAimFatigue", new Skill(Offsets.SkillManager.StrengthBuffAimFatigue, 0.2f) },
                         { "BuffThrowDistanceInc", new Skill(Offsets.SkillManager.StrengthBuffThrowDistanceInc, _config.ThrowPowerStrength / 100) },
                         { "BuffMeleePowerInc", new Skill(Offsets.SkillManager.StrengthBuffMeleePowerInc, 0.3f) },
@@ -229,7 +228,7 @@ namespace eft_dma_radar
             var staminaPtr = round3.AddEntry<ulong>(0, 6, physicalPtr, null, Offsets.Physical.Stamina);
             var handsStaminaPtr = round3.AddEntry<ulong>(0, 7, physicalPtr, null, Offsets.Physical.HandsStamina);
             var handsContainerPtr = round3.AddEntry<ulong>(0, 8, proceduralWeaponAnimationPtr, null, Offsets.ProceduralWeaponAnimation.HandsContainer);
-            var breathEffectorPtr = round3.AddEntry<ulong>(0, 9, proceduralWeaponAnimationPtr, null, Offsets.ProceduralWeaponAnimation.Breath);
+
             var startingIndex = 9; // last scattermap index + 1
 
             SetupOriginalSkillValues(startingIndex, skillsManagerPtr, ref round4, ref round5);
@@ -254,8 +253,6 @@ namespace eft_dma_radar
                 return;
             if (!scatterMap.Results[0][8].TryGetResult<ulong>(out var handsContainer))
                 return;
-            if (!scatterMap.Results[0][8].TryGetResult<ulong>(out var georgefloyd))
-                return;
 
             this._playerBase = playerBase;
             this._playerProfile = playerProfile;
@@ -266,7 +263,7 @@ namespace eft_dma_radar
             this._skillsManager = skillsManager;
             this._proceduralWeaponAnimation = proceduralWeaponAnimation;
             this._handsContainer = handsContainer;
-            this._breathEffector = georgefloyd;
+
             this.UpdateVariables();
 
             ProcessOriginalSkillValues(startingIndex, ref scatterMap);
@@ -276,14 +273,11 @@ namespace eft_dma_radar
         {
             try
             {
-                entries.Add(new ScatterWriteDataEntry<float>(this._breathEffector + Offsets.BreathEffector.Intensity, 0.01f));
-
-                if (on && this._mask != 1)
+                if (on && this._mask != 0)
                 {
-                    entries.Add(new ScatterWriteDataEntry<int>(this._proceduralWeaponAnimation + Offsets.ProceduralWeaponAnimation.Mask, 1));
-                    entries.Add(new ScatterWriteDataEntry<float>(this._breathEffector + Offsets.BreathEffector.Intensity, 0.01f));
+                    entries.Add(new ScatterWriteDataEntry<int>(this._proceduralWeaponAnimation + Offsets.ProceduralWeaponAnimation.Mask, 0));
                 }
-                else if (!on && this._mask == 1)
+                else if (!on && this._mask == 0)
                 {
                     entries.Add(new ScatterWriteDataEntry<int>(this._proceduralWeaponAnimation + Offsets.ProceduralWeaponAnimation.Mask, (int)this.OriginalValues["Mask"]));
                 }
@@ -505,41 +499,15 @@ namespace eft_dma_radar
                 this.OriginalValues["weaponLn"] = this._weaponLn;
         }
 
-        public void SetMovementState(bool on, ref List<IScatterWriteEntry> entries)
+        public void SetInfiniteStamina(bool on, ref List<IScatterWriteEntry> entries)
         {
             try
             {
-                if (on && this._animationState == 5)
-                {
-                    entries.Add(new ScatterWriteDataEntry<byte>(this._baseMovementState + Offsets.BaseMovementState.Name, 6));
-                }
-                else if (!on && this._animationState == 6)
-                {
-                    entries.Add(new ScatterWriteDataEntry<byte>(this._baseMovementState + Offsets.BaseMovementState.Name, 5));
-                }
+                entries.Add(new ScatterWriteDataEntry<bool>(this._stamina + Offsets.Stamina.ForceMode, on));
             }
             catch (Exception ex)
             {
-                Program.Log($"[PlayerManager] - SetMovementState ({ex.Message})\n{ex.StackTrace}");
-            }
-        }
-
-        public void SetMaxStamina(ref List<IScatterWriteEntry> entries)
-        {
-            try
-            {
-                if (this.OriginalValues["StaminaCapacity"] == -1)
-                {
-                    this.OriginalValues["StaminaCapacity"] = Memory.ReadValue<float>(this._physical + 0xC0);
-                    this.OriginalValues["HandStaminaCapacity"] = Memory.ReadValue<float>(this._physical + 0xC8);
-                }
-
-                entries.Add(new ScatterWriteDataEntry<float>(this._stamina + 0x48, this.OriginalValues["StaminaCapacity"]));
-                entries.Add(new ScatterWriteDataEntry<float>(this._handsStamina + 0x48, this.OriginalValues["HandStaminaCapacity"]));
-            }
-            catch (Exception ex)
-            {
-                Program.Log($"[PlayerManager] - SetMaxStamina ({ex.Message})\n{ex.StackTrace}");
+                Program.Log($"[PlayerManager] - SetInfiniteStamina ({ex.Message})\n{ex.StackTrace}");
             }
         }
 

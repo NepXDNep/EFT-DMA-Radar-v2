@@ -144,13 +144,13 @@ namespace eft_dma_radar
             uint flags
     );
 
-        [DllImport("vmm", EntryPoint = "VMMDLL_PdbLoad")]
-        internal static extern unsafe bool VMMDLL_PdbLoad(
+        [DllImport("vmm", EntryPoint = "VMMDLL_PdbLoad", CharSet = CharSet.Ansi)]
+        private static extern bool VMMDLL_PdbLoad(
             IntPtr hVMM,
             uint dwPID,
             ulong vaModuleBase,
-            byte* pModuleMapEntry
-    );
+            [Out] StringBuilder szModuleName
+        );
 
 
         [DllImport("vmm", EntryPoint = "VMMDLL_Map_GetEATU", CharSet = CharSet.Unicode)]
@@ -169,20 +169,13 @@ namespace eft_dma_radar
             return VMMDLL_PdbSymbolAddress(hVMM, moduleName, symbolName, out symbolAddress);
         }
 
-        public static unsafe bool PdbLoad(Vmm handle, uint pid, ulong vaModuleBase, out string szModuleName)
+        public static bool PdbLoad(IntPtr hVMM, uint pid, ulong moduleBase, out string moduleName)
         {
-            szModuleName = "";
-            byte[] data = new byte[260];
-            fixed (byte* pb = data)
-            {
-                bool result = VMMDLL_PdbLoad(handle, pid, vaModuleBase, pb);
-                if (!result) { return false; }
-                szModuleName = Encoding.UTF8.GetString(data);
-                szModuleName = szModuleName.Substring(0, szModuleName.IndexOf((char)0));
-            }
-            return true;
+            StringBuilder buffer = new StringBuilder(32);
+            bool result = VMMDLL_PdbLoad(hVMM, pid, moduleBase, buffer);
+            moduleName = result ? buffer.ToString() : null;
+            return result;
         }
-
 
         public unsafe static bool GetExportFr(Vmm vmm_handle, uint process_pid, string module_name, string export_name, out ulong fnc_addy)
         {
@@ -679,7 +672,7 @@ namespace eft_dma_radar
                 MessageBox.Show("Not in game");
                 return new Vector3();
             }
-            ulong handscontainer = Memory.ReadPtrChain(playamanaga._proceduralWeaponAnimation, new uint[] { ProceduralWeaponAnimation.FirearmController, FirearmController.Fireport, Fireport.To_TransfromInternal[0], Fireport.To_TransfromInternal[1] });
+            ulong handscontainer = Memory.ReadPtrChain(playamanaga._proceduralWeaponAnimation, new uint[] { ProceduralWeaponAnimation.FirearmContoller, FirearmController.Fireport, Fireport.To_TransfromInternal[0], Fireport.To_TransfromInternal[1] });
             Transform tranny = new Transform(handscontainer);
             Vector3 goofy = tranny.GetPosition();
             return new Vector3(goofy.X, goofy.Z, goofy.Y);

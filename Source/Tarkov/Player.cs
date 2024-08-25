@@ -389,7 +389,6 @@ namespace eft_dma_radar
             }
         }
 
-
         //paskakoodi
         public void SetRotationFr(Vector2 brainrot)
         {
@@ -411,6 +410,7 @@ namespace eft_dma_radar
             }
             return Memory.ReadValue<Vector2>(this.isOfflinePlayer ? this.MovementContext + Offsets.MovementContext.Rotation : this.MovementContext + Offsets.ObservedPlayerMovementContext.Rotation);
         }
+
 
         /// <summary>
         /// Set player rotation (Direction/Pitch)
@@ -741,17 +741,17 @@ namespace eft_dma_radar
         /// </summary>
         private void SetupBones()
         {
-            var boneMatrix = Memory.ReadPtrChain(this.PlayerBody, [0x28, 0x28, 0x10]);
+            //var boneMatrix = Memory.ReadPtrChain(this.PlayerBody, [0x28, 0x28, 0x10]);
 
-            foreach (var bone in RequiredBones)
-            {
-                var boneIndex = (uint)bone;
-                var pointer = Memory.ReadPtrChain(boneMatrix, [0x20 + (boneIndex * 0x8), 0x10]);
+            //foreach (var bone in RequiredBones)
+            //{
+            //    var boneIndex = (uint)bone;
+            //    var pointer = Memory.ReadPtrChain(boneMatrix, [0x20 + (boneIndex * 0x8), 0x10]);
 
-                this.BonePointers.Add(pointer);
-                this.BoneTransforms.Add(new Transform(pointer, false));
-                this.BonePositions.Add(new Vector3(0f, 0f, 0f));
-            }
+            //    this.BonePointers.Add(pointer);
+            //    this.BoneTransforms.Add(new Transform(pointer, false));
+            //    this.BonePositions.Add(new Vector3(0f, 0f, 0f));
+            //}
         }
 
         /// <summary>
