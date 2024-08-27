@@ -106,7 +106,7 @@ namespace eft_dma_radar
             {
                 lock (_logLock) // Sync access to File IO
                 {
-                    _log.WriteLine($"{DateTime.Now}: {msg}");
+                    Console.WriteLine($"{DateTime.Now}: {msg}");
                 }
             }
         }

@@ -393,7 +393,7 @@
 
     public struct MovementContext //EFT.MovementContext
     {
-        public const uint Rotation = 0x408; // [408] _myRotation : UnityEngine.Vector2
+        public const uint Rotation = 0x27C; //[408] _myRotation : UnityEngine.Vector2 == dogshit, use:  [27C] _rotation : UnityEngine.Vector2
         public const uint BaseMovementState = 0xE0; // [E0] <CurrentState>k__BackingField : EFT.BaseMovementState
     }
 
