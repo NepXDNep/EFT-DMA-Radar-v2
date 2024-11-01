@@ -28,8 +28,6 @@ namespace Offsets
         public const uint GameObjectManager = 0x17FFD28; // to GameObjectManager
         public const uint CameraObjectManager = 0x0179F500; // to Camera
         public const uint TimeScale = 0x17FFAE0; // to TimeScale
-       
-        public static ulong ManagerContext { get; internal set; }
     }
 
     public struct TimeScale
@@ -127,8 +125,8 @@ namespace Offsets
         public const uint Corpse = 0x420; // [420] Corpse : EFT.Interactive.Corpse
         public const uint Location = 0x610; // [610] <Location>k__BackingField : String
         public const uint Profile = 0x648; // [648] <Profile>k__BackingField : EFT.Profile
-        public const uint InventoryController = 0x06A0; // [698] _inventoryController : -.Player.PlayerInventoryController
-        public const uint Physical = 0x658; // [658] Physical : -.GClass07BE
+        public const uint Physical = 0x658; // [658] Physical : -.GClass07E7
+        public const uint InventoryController = 0x6A0; // [6A0] _inventoryController : -.Player.PlayerInventoryController
         public const uint HandsController = 0x6A8; // [6A8] _handsController : -.Player.AbstractHandsController
         public const uint IsExtracting = 0x972; // [972] <ExitTriggerZone>k__BackingField : Boolean
     }
@@ -179,7 +177,7 @@ namespace Offsets
         public const uint Role = 0x10; // [10] Role : System.Int32
     }
 
-    public struct InventoryController // -.GClass1A98
+    public struct InventoryController // -.Player.PlayerInventoryController
     {
         public const uint Inventory = 0x118; // [118] <Inventory>k__BackingField : EFT.InventoryLogic.Inventory
         public const uint ObservedPlayerInventory = 0x138; // to Inventory
@@ -377,7 +375,7 @@ namespace Offsets
 
     public struct InventoryBlur
     {
-       public const uint BlurEnabled = 0x3C; // //[3C] boolean_0x3C : Boolean
+        public const uint BlurEnabled = 0x3C; // [3C] boolean_0x3C : Boolean
     }
 
     public struct PlayerInfo // [Class] -.GClass189D
@@ -407,7 +405,7 @@ namespace Offsets
         public const uint ExfilController = 0x20; // [20] gClass1263_0x20 : -.GClass1263
         public const uint MapName = 0x78; // [78] string_0x78 : String
         public const uint LootList = 0x100; // [100] LootList : System.Collections.Generic.List<GInterface1D1F>
-        public const uint ObservedPlayerCorpses = 0x118; // [118] ObservedPlayersCorpses : System.Collections.Generic.Dictionary<Int32, ObservedCorpse>
+        public const uint ObservedPlayersCorpses = 0x118; // [118] ObservedPlayersCorpses : System.Collections.Generic.Dictionary<Int32, ObservedCorpse>
         public const uint RegisteredPlayers = 0x128; // [128] RegisteredPlayers : System.Collections.Generic.List<IPlayer>
         public const uint MainPlayer = 0x190; // [190] MainPlayer : EFT.Player
         public const uint ToTripwireManager = 0x1C0; // [1C0] gClass219E_0x1C0 : -.GClass219E
@@ -607,10 +605,5 @@ namespace Offsets
     public struct TOD_Time
     {
         public const uint GameDateTime = 0x18; // [18] GameDateTime : EFT.GameDateTime
-    }
-
-    public struct CameraShit
-    {
-        public static uint[] viewmatrix = new uint[] { 0x30, 0x18 };
     }
 }
