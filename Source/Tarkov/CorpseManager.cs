@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Numerics;
@@ -19,7 +19,7 @@ namespace eft_dma_radar
         public CorpseManager(ulong localGameWorld)
         {
             this.localGameWorld = localGameWorld;
-            this._corpseDictionary = Memory.ReadPtr(this.localGameWorld + 0xE0);
+            this._corpseDictionary = Memory.ReadPtr(this.localGameWorld + Offsets.LocalGameWorld.ObservedPlayersCorpses);
             this._sw.Start();
         }
 
